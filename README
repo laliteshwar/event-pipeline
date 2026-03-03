@@ -1,0 +1,32 @@
+# Real-Time Event Analytics Pipeline
+
+a real-time event ingestion and analytics system that tracks and analyzes 
+user activity (clicks, searches, purchases) across applications.
+
+# Architecture
+User Action → Producer → Kafka → Consumer → Redis (live counters)
+                                           → PostgreSQL (permanent storage)
+                                FastAPI → reads Redis/DB → serves API
+
+# base logic
+- Every user event increments a counter in Redis (INCR user:{id}:count)
+- Every 100 events are bulk inserted into PostgreSQL for permanent storage
+- FastAPI serves live metrics by reading from Redis
+
+# tech stack
+Kafka - event streaming and message queue
+Redis - real-time in-memory counters
+PostgreSQL - permanent event storage
+FastAPI - REST API layer
+Docker Compose - runs entire stack with one command
+
+# how to run
+docker-compose up
+
+# API endpoints
+GET /top-users     → returns top 10 users by event count
+GET /user/{id}     → returns event count for a specific user
+
+# learnings
+- Event-driven architecture with Kafka producer-consumer pattern
+- Redis for real-time counters vs Po
