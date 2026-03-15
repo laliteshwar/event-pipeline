@@ -1,25 +1,29 @@
+import os
+from dotenv import load_dotenv
 from kafka import KafkaConsumer, KafkaProducer
 import json
 import time
 import redis
 import psycopg2
 
-r = redis.Redis(host = 'localhost', port = 6379, decode_responses=True)
+load_dotenv()
+
+r = redis.Redis(host = os.getenv("REDIS_HOST"), port = int(os.getenv("REDIS_PORT")), decode_responses=True)
 
 
 dlq_producer = KafkaProducer(
-    bootstrap_servers="localhost:9092",
+    bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS"),
     value_serializer = lambda v:json.dumps(v).encode('utf-8')
 )
 consumer = KafkaConsumer(
-        'ecommerce-events',
-        bootstrap_servers="localhost:9092",
+        os.getenv("KAFKA_TOPIC"),
+        bootstrap_servers=os.getenv("KAFKA_BOOTSTRAP_SERVERS"),
         value_deserializer = lambda v:json.loads(v.decode('utf-8'))
     )
 
 conn = psycopg2.connect(
-        host = "localhost", port = 5432,
-        database = 'events', user="sunny", password="password"
+        host = os.getenv("POSTGRES_HOST"), port = int(os.getenv("POSTGRES_PORT")),
+        database = os.getenv("POSTGRES_DB"), user=os.getenv("POSTGRES_USER"), password=os.getenv("POSTGRES_PASSWORD")
     )
 cursor = conn.cursor()
 
@@ -62,10 +66,11 @@ for message in consumer:
             cursor.execute('''INSERT into events(
                            event_id, event_type, user_id,item_id,item_name, price,quantity, amount, status,timestamp) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)''',(event_id, event_type, user_id,item_id,item_name, price,quantity, amount, status,timestamp))
             conn.commit()
+            r.incr(f"user:{user_id}:count")
             r.sadd("processed_events",event_id)
-            r.expire("processed_events",86400)
-        except:
-            dlq_producer.send('dlq-events',event)
+            r.expire(event_id,86400)
+        except Exception as e:
+            dlq_producer.send(os.getenv("KAFKA_DLQ_TOPIC"),event)
             print("failed events / exisiting events sent to dlq events topic")
         
     

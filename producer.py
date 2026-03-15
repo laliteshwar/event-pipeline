@@ -1,13 +1,15 @@
-
+import os 
+from dotenv import load_dotenv
 from kafka import KafkaProducer   
 import json
 import time
 import random
 import uuid
 
+load_dotenv()
 
 producer= KafkaProducer(
-        bootstrap_servers = 'localhost:9992',
+        bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS"),
         value_serializer = lambda v:json.dumps(v).encode("utf-8")
     )
 
@@ -69,5 +71,5 @@ while True:
         
         events=[order_placed,payment_initiated,cart_updated,item_viewed]
         event = random.choice(events)
-        producer.send("e-commerce", event)
+        producer.send(os.getenv("KAFKA_TOPIC"), event)
         time.sleep(0.5)
